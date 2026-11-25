@@ -205,12 +205,74 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;p
   setTimeout(()=>window.printNote(order.id),300);
  });
 
+
+ let editingOrderId = null;
+ window.closeEditOrder = () => { $("editOrderModal").classList.add("hidden"); editingOrderId=null; };
+ window.editOrder = (id) => {
+  const o=allOrders.find(x=>String(x.id)===String(id));
+  if(!o){toast("No se encontró la orden. Actualiza la lista e intenta de nuevo.");return;}
+  const e=o.equipos||{}, c=e.clientes||{};
+  editingOrderId=id;
+  const values={nombre:c.nombre,telefono:c.telefono,email:c.email,direccion:c.direccion,tipo:e.tipo,marca:e.marca,modelo:e.modelo,imei:e.imei,numero_serie:e.numero_serie,color:e.color,falla_reportada:e.falla_reportada,accesorios:e.accesorios,presupuesto:o.presupuesto,estado:o.estado,fecha_compromiso:o.fecha_compromiso,diagnostico:o.diagnostico};
+  Object.entries(values).forEach(([k,v])=>{const el=$("ed_"+k);if(el)el.value=v??"";});
+  $("editOrderMsg").textContent="Folio: "+(o.folio||"");
+  $("editOrderModal").classList.remove("hidden");
+ };
+ $("editOrderForm").addEventListener("submit",async ev=>{
+  ev.preventDefault(); if(!editingOrderId)return;
+  const o=allOrders.find(x=>String(x.id)===String(editingOrderId)); if(!o)return;
+  const e=o.equipos||{},c=e.clientes||{};
+  const val=id=>$("ed_"+id).value.trim();
+  const presupuesto=Number(val("presupuesto")||0), anticipo=Number(o.anticipo||0);
+  if(presupuesto<0){$("editOrderMsg").textContent="El presupuesto no puede ser negativo.";return;}
+  const btn=ev.submitter; if(btn)btn.disabled=true;
+  $("editOrderMsg").textContent="Guardando cambios...";
+  try {
+   const clienteUpdate={nombre:val("nombre"),telefono:val("telefono"),email:val("email")||null,direccion:val("direccion")||null};
+   const equipoUpdate={tipo:val("tipo"),marca:val("marca")||null,modelo:val("modelo")||null,imei:val("imei")||null,numero_serie:val("numero_serie")||null,color:val("color")||null,falla_reportada:val("falla_reportada"),accesorios:val("accesorios")||null};
+   const ordenUpdate={diagnostico:val("diagnostico")||null,presupuesto,anticipo,saldo:Math.max(0,presupuesto-anticipo),estado:val("estado"),fecha_compromiso:val("fecha_compromiso")||null};
+   let r=await sb.from("clientes").update(clienteUpdate).eq("id",c.id); if(r.error)throw new Error("Cliente: "+r.error.message);
+   r=await sb.from("equipos").update(equipoUpdate).eq("id",e.id); if(r.error)throw new Error("Equipo: "+r.error.message);
+   r=await sb.from("ordenes_reparacion").update(ordenUpdate).eq("id",o.id); if(r.error)throw new Error("Orden: "+r.error.message);
+   window.closeEditOrder(); await loadData(); toast("Orden "+(o.folio||"")+" actualizada correctamente.");
+  } catch(err){$("editOrderMsg").textContent="No se pudo guardar: "+err.message;}
+  finally{if(btn)btn.disabled=false;}
+ });
+
  window.printNote=(id)=>{
   const o=allOrders.find(x=>x.id===id);if(!o)return;
   const e=o.equipos||{},c=e.clientes||{};
   const w=window.open("","_blank");if(!w){toast("Permite ventanas emergentes para imprimir la nota.");return}
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Nota ${esc(o.folio)}</title><style>body{font-family:Arial;padding:28px;color:#222}header{display:flex;align-items:center;gap:15px;border-bottom:3px solid #f28c28;padding-bottom:14px}header img{width:90px;height:75px;object-fit:contain}h1{font-size:20px;margin:0}small{color:#555}.folio{font-size:22px;color:#d87516;font-weight:bold;margin:18px 0}table{width:100%;border-collapse:collapse}td{padding:9px;border-bottom:1px solid #ddd}td:first-child{font-weight:bold;width:34%}.foot{margin-top:24px;font-size:12px;color:#555}@media print{button{display:none}}</style></head><body><header><img src="${LOGO}"><div><h1>FRAUSTO SISTEMAS</h1><div>Recepción de equipos</div><small>Comprobante de recepción</small></div></header><div class="folio">${esc(o.folio)}</div><table>
-  <tr><td>Cliente</td><td>${esc(c.nombre)}</td></tr><tr><td>Teléfono</td><td>${esc(c.telefono)}</td></tr><tr><td>Equipo</td><td>${esc([e.tipo,e.marca,e.modelo,e.color].filter(Boolean).join(" / "))}</td></tr><tr><td>IMEI / Serie</td><td>${esc(e.imei||e.numero_serie||"No proporcionado")}</td></tr><tr><td>Falla reportada</td><td>${esc(e.falla_reportada)}</td></tr><tr><td>Accesorios</td><td>${esc(e.accesorios||"Ninguno indicado")}</td></tr><tr><td>Diagnóstico</td><td>${esc(o.diagnostico||"Pendiente")}</td></tr><tr><td>Presupuesto</td><td>${money(o.presupuesto)}</td></tr><tr><td>Anticipo</td><td>${money(o.anticipo)}</td></tr><tr><td>Saldo</td><td>${money(o.saldo)}</td></tr><tr><td>Fecha recepción</td><td>${o.creado_en?new Date(o.creado_en).toLocaleString("es-MX"):""}</td></tr></table><p class="foot">Conserve este comprobante para consultar el estado de su equipo. Gracias por su preferencia.</p><button onclick="window.print()">Imprimir / Guardar PDF</button></body></html>`);
+  <tr><td>Cliente</td><td>${esc(c.nombre)}</td></tr><tr><td>Teléfono</td><td>${esc(c.telefono)}</td></tr><tr><td>Equipo</td><td>${esc([e.tipo,e.marca,e.modelo,e.color].filter(Boolean).join(" / "))}</td></tr><tr><td>IMEI / Serie</td><td>${esc(e.imei||e.numero_serie||"No proporcionado")}</td></tr><tr><td>Falla reportada</td><td>${esc(e.falla_reportada)}</td></tr><tr><td>Accesorios</td><td>${esc(e.accesorios||"Ninguno indicado")}</td></tr><tr><td>Diagnóstico</td><td>${esc(o.diagnostico||"Pendiente")}</td></tr><tr><td>Presupuesto</td><td>${money(o.presupuesto)}</td></tr><tr><td>Anticipo</td><td>${money(o.anticipo)}</td></tr><tr><td>Saldo</td><td>${money(o.saldo)}</td></tr><tr><td>Fecha recepción</td><td>${o.creado_en?new Date(o.creado_en).toLocaleString("es-MX"):""}</td></tr></table><p class="foot">Conserve este comprobante para consultar el estado de su equipo. Gracias por su preferencia.</p><button onclick="window.print()">Imprimir / Guardar PDF</button>
+<div id="editOrderModal" class="modal hidden" style="position:fixed;inset:0;background:#0009;z-index:9999;overflow:auto;padding:20px;">
+ <div style="max-width:680px;margin:30px auto;background:#fff;border-radius:14px;padding:22px;color:#222;box-shadow:0 10px 40px #0005;">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><h2 style="margin:0">Editar orden</h2><button type="button" class="secondary" onclick="window.closeEditOrder()">Cerrar ✕</button></div>
+  <p id="editOrderMsg" style="color:#b45309"></p>
+  <form id="editOrderForm">
+   <h3>Datos del cliente</h3>
+   <div class="form-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+    <label>Nombre<input id="ed_nombre" required></label><label>Teléfono<input id="ed_telefono" required></label><label>Correo<input id="ed_email" type="email"></label><label>Dirección<input id="ed_direccion"></label>
+   </div>
+   <h3>Datos del equipo</h3>
+   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+    <label>Tipo<input id="ed_tipo" required></label><label>Marca<input id="ed_marca"></label><label>Modelo<input id="ed_modelo"></label><label>IMEI<input id="ed_imei"></label><label>Número de serie<input id="ed_numero_serie"></label><label>Color<input id="ed_color"></label>
+   </div>
+   <label style="display:block;margin-top:10px">Falla reportada<textarea id="ed_falla_reportada" rows="2" style="width:100%"></textarea></label>
+   <label style="display:block;margin-top:10px">Accesorios<textarea id="ed_accesorios" rows="2" style="width:100%"></textarea></label>
+   <h3>Datos de reparación</h3>
+   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+    <label>Presupuesto<input id="ed_presupuesto" type="number" min="0" step="0.01"></label>
+    <label>Estado<select id="ed_estado"><option>Recibido</option><option>En diagnóstico</option><option>En reparación</option><option>En espera de refacción</option><option>Terminado</option><option>Entregado</option><option>Sin reparación</option><option>Cancelado</option></select></label>
+    <label>Fecha compromiso<input id="ed_fecha_compromiso" type="date"></label>
+   </div>
+   <label style="display:block;margin-top:10px">Diagnóstico<textarea id="ed_diagnostico" rows="3" style="width:100%"></textarea></label>
+   <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px"><button type="button" class="secondary" onclick="window.closeEditOrder()">Cancelar</button><button type="submit" class="primary">Guardar cambios</button></div>
+  </form>
+ </div>
+</div>
+
+</body></html>`);
   w.document.close();
  };
  window.sendWhatsApp=(id)=>{
@@ -222,4 +284,32 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;p
  checkSession();
 })();
 </script>
+
+<div id="editOrderModal" class="modal hidden" style="position:fixed;inset:0;background:#0009;z-index:9999;overflow:auto;padding:20px;">
+ <div style="max-width:680px;margin:30px auto;background:#fff;border-radius:14px;padding:22px;color:#222;box-shadow:0 10px 40px #0005;">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><h2 style="margin:0">Editar orden</h2><button type="button" class="secondary" onclick="window.closeEditOrder()">Cerrar ✕</button></div>
+  <p id="editOrderMsg" style="color:#b45309"></p>
+  <form id="editOrderForm">
+   <h3>Datos del cliente</h3>
+   <div class="form-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+    <label>Nombre<input id="ed_nombre" required></label><label>Teléfono<input id="ed_telefono" required></label><label>Correo<input id="ed_email" type="email"></label><label>Dirección<input id="ed_direccion"></label>
+   </div>
+   <h3>Datos del equipo</h3>
+   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+    <label>Tipo<input id="ed_tipo" required></label><label>Marca<input id="ed_marca"></label><label>Modelo<input id="ed_modelo"></label><label>IMEI<input id="ed_imei"></label><label>Número de serie<input id="ed_numero_serie"></label><label>Color<input id="ed_color"></label>
+   </div>
+   <label style="display:block;margin-top:10px">Falla reportada<textarea id="ed_falla_reportada" rows="2" style="width:100%"></textarea></label>
+   <label style="display:block;margin-top:10px">Accesorios<textarea id="ed_accesorios" rows="2" style="width:100%"></textarea></label>
+   <h3>Datos de reparación</h3>
+   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+    <label>Presupuesto<input id="ed_presupuesto" type="number" min="0" step="0.01"></label>
+    <label>Estado<select id="ed_estado"><option>Recibido</option><option>En diagnóstico</option><option>En reparación</option><option>En espera de refacción</option><option>Terminado</option><option>Entregado</option><option>Sin reparación</option><option>Cancelado</option></select></label>
+    <label>Fecha compromiso<input id="ed_fecha_compromiso" type="date"></label>
+   </div>
+   <label style="display:block;margin-top:10px">Diagnóstico<textarea id="ed_diagnostico" rows="3" style="width:100%"></textarea></label>
+   <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px"><button type="button" class="secondary" onclick="window.closeEditOrder()">Cancelar</button><button type="submit" class="primary">Guardar cambios</button></div>
+  </form>
+ </div>
+</div>
+
 </body></html>
