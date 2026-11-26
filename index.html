@@ -122,9 +122,11 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;p
 
 <script>
 (() => {
- const SUPABASE_URL = "https://kzpkmupgtytdjjmhslin.supabase.co";
- const SUPABASE_KEY = "sb_publishable__TaCVk9zT9Unv4PyrVi4qQ_mvzMISjl";
- const  ADMIN_UIDS = [
+const SUPABASE_URL = "https://kzpkmupgtytdjjmhslin.supabase.co";
+
+const SUPABASE_KEY = "sb_publishable__TaCVk9zT9Unv4PyrVi4qQ_mvzMISjl";
+
+const ADMIN_UIDS = [
   "dfc9558c-e1ca-4749-9cc7-03399c8edb5d",
   "3ca50be4-e72a-469e-a1f2-8d9a37eb937d"
 ];
@@ -143,16 +145,23 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;p
   $("userLabel").textContent=user.email||"Administrador"; loadData();
  }
  function showLogin(){ $("loginView").classList.remove("hidden");$("topbar").classList.add("hidden");$("appView").classList.add("hidden"); }
- async function checkSession(){
+async function checkSession(){
   const {data,error}=await sb.auth.getSession();
   if(error){$("loginMsg").textContent=error.message;return}
-  if(data.session){if(data.session.user.id!==ADMIN_UID){await sb.auth.signOut();$("loginMsg").textContent="Esta cuenta no está autorizada.";return}showApp(data.session.user)}
- }
+  if(data.session){
+    if(!ADMIN_UIDS.includes(data.session.user.id)){
+      await sb.auth.signOut();
+      $("loginMsg").textContent="Esta cuenta no está autorizada.";
+      return;
+    }
+    showApp(data.session.user);
+  }
+}
  $("loginBtn").addEventListener("click",async()=>{
   $("loginMsg").textContent="Verificando acceso...";
   const {data,error}=await sb.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});
   if(error){$("loginMsg").textContent=error.message;return}
-  if(!ADMIN_UIDS.includes(data.user.id))){await sb.auth.signOut();$("loginMsg").textContent="Esta cuenta no está autorizada.";return}
+  if(!ADMIN_UIDS.includes(data.user.id)){await sb.auth.signOut();$("loginMsg").textContent="Esta cuenta no está autorizada.";return}
   $("loginMsg").textContent="";showApp(data.user);
  });
  $("logoutBtn").addEventListener("click",async()=>{await sb.auth.signOut();showLogin()});
