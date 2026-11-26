@@ -152,7 +152,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;p
   $("loginMsg").textContent="Verificando acceso...";
   const {data,error}=await sb.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});
   if(error){$("loginMsg").textContent=error.message;return}
-  if(data.user.id!==!ADMIN_UIDS.includes(data.user.id)){await sb.auth.signOut();$("loginMsg").textContent="Esta cuenta no está autorizada.";return}
+  if(!ADMIN_UIDS.includes(data.user.id))){await sb.auth.signOut();$("loginMsg").textContent="Esta cuenta no está autorizada.";return}
   $("loginMsg").textContent="";showApp(data.user);
  });
  $("logoutBtn").addEventListener("click",async()=>{await sb.auth.signOut();showLogin()});
