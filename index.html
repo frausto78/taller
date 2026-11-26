@@ -165,7 +165,7 @@ async function checkSession(){
   $("loginMsg").textContent="";showApp(data.user);
  });
  $("logoutBtn").addEventListener("click",async()=>{await sb.auth.signOut();showLogin()});
- sb.auth.onAuthStateChange((_event,session)=>{if(!session)showLogin()});
+ sb.auth.onAuthStateChange(async (event, session) => {   if (event === "PASSWORD_RECOVERY") {     const nueva = prompt("Escribe tu nueva contraseña:");     if (!nueva || nueva.length < 6) {       alert("La contraseña debe tener al menos 6 caracteres.");       return;     }     const { error } = await sb.auth.updateUser({ password: nueva });     if (error) {       alert("Error: " + error.message);     } else {       alert("Contraseña actualizada correctamente.");       await sb.auth.signOut();       showLogin();     }     return;   }   if (!session) showLogin(); });
 
  document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>activateTab(b.dataset.tab)));
  document.querySelectorAll("[data-goto]").forEach(b=>b.addEventListener("click",()=>activateTab(b.dataset.goto)));
